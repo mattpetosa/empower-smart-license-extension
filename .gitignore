@@ -1,0 +1,5 @@
+node_modules/
+dist/
+*.zip
+# Real Salesforce pages contain customer data - never commit them
+real-pages/
