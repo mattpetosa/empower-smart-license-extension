@@ -13,12 +13,12 @@ const row = (productName, serial, extra = {}) => ({ key: `k-${serial}-${productN
 const SQT = row('License, Empower SQT for software 1 year', 'DD0000000000123456');
 const reasons = res => res.removed.map(r => r.reason);
 
-test('rows become a License | Qty | Serial No sheet', () => {
-  assert.deepEqual(E.rowsToSheets([SQT, row('Empower 3 Named User License', 'AB12345678', { qty: '5' })]), [{ name: 'Assets', rows: [
-    { r: 1, cells: [[1, 'License'], [2, 'Qty'], [3, 'Serial No']] },
-    { r: 2, cells: [[1, 'License, Empower SQT for software 1 year'], [3, 'DD0000000000123456']] },
-    { r: 3, cells: [[1, 'Empower 3 Named User License'], [2, '5'], [3, 'AB12345678']] },
-  ] }]);
+test('each row becomes its own License | Qty | Serial No sheet', () => {
+  const H = { r: 1, cells: [[1, 'License'], [2, 'Qty'], [3, 'Serial No']] };
+  assert.deepEqual(E.rowsToSheets([SQT, row('Empower 3 Named User License', 'AB12345678', { qty: '5' })]), [
+    { name: 'Assets', rows: [H, { r: 2, cells: [[1, 'License, Empower SQT for software 1 year'], [3, 'DD0000000000123456']] }] },
+    { name: 'Assets', rows: [H, { r: 3, cells: [[1, 'Empower 3 Named User License'], [2, '5'], [3, 'AB12345678']] }] },
+  ]);
 });
 
 test('Asset Name is the fallback license name', () => {
@@ -80,4 +80,25 @@ test('end to end: synthetic Assets page -> pre-ticked rows -> portal CSV', async
   const files = E.buildFiles(E.cleanAssets(out.rows.filter(looksLikeLicense)), { company: out.accountName, order_number: out.orderNumber });
   assert.equal(files.csv, 'Serial_Numbers\r\nDD0000000000123456\r\n');
   assert.equal(files.names.csv, 'Contoso_Labs_Inc_02000001_Simple_ESLC.csv');
+});
+
+test('a header-looking ticked row cannot break the rows after it', () => {
+  const res = E.cleanAssets([
+    row('Serial Port Option', 'ABC123'),
+    row('Empower 3 Named User License', 'AB12345678', { qty: '5' }),
+    row('176004 Feature Release', 'CD12345678'),
+  ]);
+  assert.deepEqual(res.licenses.map(l => [l.serial, l.qty]).sort(), [['AB12345678', 5], ['CD12345678', null]]);
+  assert.ok(res.removed.some(r => r.reason === 'Not recognized by the License Cleaner' && r.raw === 'Serial Port Option | ABC123'));
+});
+
+test('a swallowed row is reported even when its serial appears in another removed line', () => {
+  // 'TBD' is too short to be a serial, so parseGrid drops the row without a trace; the
+  // duplicate 'Empower TBD Option' puts the text TBD into the removed list anyway.
+  const res = E.cleanAssets([
+    row('Empower 3 Personal Option', 'TBD'),
+    row('Empower TBD Option', 'EF12345678'),
+    row('Empower TBD Option', 'EF12345678-001'),
+  ]);
+  assert.ok(res.removed.some(r => r.reason === 'Not recognized by the License Cleaner' && r.raw === 'Empower 3 Personal Option | TBD'), JSON.stringify(res.removed));
 });

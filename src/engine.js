@@ -6,35 +6,39 @@
   const ESLC = (typeof module !== 'undefined' && module.exports) ? require('../vendor/core.js') : root.ESLC;
   const FIELD_ORDER = ['company', 'support_id', 'order_number', 'sold_to'];
   const FIELD_LABELS = { company: 'Company', support_id: 'Support ID', order_number: 'Order Number', sold_to: 'Sold To' };
-  const cleanSerial = s => String(s || '').trim().replace(/-\d{3}$/, ''); // same as core.js
   const licenseName = r => (r.productName || r.assetName || '').trim();
   const describe = r => `${licenseName(r) || '(no name)'} | ${String(r.serial || '').trim() || '(no serial)'}`;
 
+  const HEADER = { r: 1, cells: [[1, 'License'], [2, 'Qty'], [3, 'Serial No']] };
+  const ROW_OF_RAW = /^Assets!(?:[A-Z]+)?(\d+):/;
+
+  // One sheet per row: core.js re-detects header rows as it goes, so a ticked row that
+  // merely looks like a header ("Serial Port Option") must not re-map the rows after it.
   function rowsToSheets(rows) {
-    const out = [{ r: 1, cells: [[1, 'License'], [2, 'Qty'], [3, 'Serial No']] }];
-    rows.forEach((row, i) => {
+    return rows.map((row, i) => {
       const cells = [];
       const name = licenseName(row), qty = String(row.qty || '').trim(), serial = String(row.serial || '').trim();
       if (name) cells.push([1, name]);
       if (qty) cells.push([2, qty]);
       if (serial) cells.push([3, serial]);
-      out.push({ r: i + 2, cells });
+      return { name: 'Assets', rows: [HEADER, { r: i + 2, cells }] };
     });
-    return [{ name: 'Assets', rows: out }];
   }
 
   function cleanAssets(rows, opts = {}) {
     const withSerial = rows.filter(r => String(r.serial || '').trim());
     const res = ESLC.parseGrid(rowsToSheets(withSerial));
-    for (const r of rows) if (!String(r.serial || '').trim()) res.removed.push({ raw: describe(r), reason: 'No serial number in Salesforce' });
-    // Anything the Cleaner neither kept nor explained must not vanish silently.
-    const kept = new Set(res.licenses.map(l => l.serial));
-    const explained = [...res.removed.map(x => x.raw), ...res.unparsed].join('\n');
-    for (const r of withSerial) {
-      if (!kept.has(cleanSerial(r.serial)) && !explained.includes(String(r.serial).trim())) {
-        res.removed.push({ raw: describe(r), reason: 'Not recognized by the License Cleaner' });
-      }
+    // Anything the Cleaner neither kept nor explained must not vanish silently. Every
+    // line core.js reports starts "Assets!<row>:" (or "Assets!A<row>:"), so account by row.
+    const seen = new Set();
+    for (const raw of [...res.licenses.map(l => l.raw), ...res.removed.map(x => x.raw), ...res.unparsed]) {
+      const m = ROW_OF_RAW.exec(raw);
+      if (m) seen.add(Number(m[1]));
     }
+    withSerial.forEach((r, i) => {
+      if (!seen.has(i + 2)) res.removed.push({ raw: describe(r), reason: 'Not recognized by the License Cleaner' });
+    });
+    for (const r of rows) if (!String(r.serial || '').trim()) res.removed.push({ raw: describe(r), reason: 'No serial number in Salesforce' });
     if (opts.removeSqt) ESLC.removeSqt(res);
     if (opts.removeZero) ESLC.removeZeroQty(res);
     return res;
