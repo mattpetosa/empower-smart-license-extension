@@ -126,3 +126,35 @@ test('grid inside an open shadow root is found, with its item count', async () =
   assert.equal(out.complete, true);
   assert.equal(out.orderNumber, '02000001');
 });
+
+test('a visible record-page preview grid is never read as the Assets list', async () => {
+  // Just after clicking View All: URL already says Assets, only the record page's preview is on screen.
+  const doc = load(assetsPageHtml());
+  doc.querySelector('.forceRelatedListDesktop table').remove();
+  doc.querySelectorAll('.tabContent').forEach(s => s.classList.add('active'));
+  doc.querySelector('.windowViewMode-minimized').classList.replace('windowViewMode-minimized', 'windowViewMode-maximized');
+  assert.deepEqual(await S.readAssets({ doc, ...fast }), { error: 'no-grid' });
+});
+
+test('breadcrumb for a different record than the URL means a stale page', async () => {
+  const doc = load(assetsPageHtml({ crumbRecordId: '801000000000999AAA' }));
+  assert.deepEqual(await S.readAssets({ doc, ...fast }), { error: 'stale-page' });
+});
+
+test('breadcrumb record id may be the 15-char form of the URL id', async () => {
+  const out = await S.readAssets({ doc: load(assetsPageHtml({ crumbRecordId: '801000000000001' })), ...fast });
+  assert.equal(out.rows.length, 23);
+});
+
+test('real-browser visibility asks for visibility and opacity too', async () => {
+  // A cached View All for another order hidden with visibility:hidden must lose to the shown one.
+  const doc = load(assetsPageHtml());
+  const other = EXAMPLE_ROWS.concat(EXAMPLE_ROWS).map((r, i) => ({ ...r, key: `02iOTHER${String(i).padStart(10, '0')}` }));
+  doc.body.insertAdjacentHTML('afterbegin', `<div class="cached-page"><div class="slds-scrollable_y">${gridHtml(other)}</div></div>`);
+  doc.defaultView.Element.prototype.checkVisibility = function (o) {
+    return !(o && o.visibilityProperty && o.opacityProperty && this.closest('.cached-page'));
+  };
+  const out = await S.readAssets({ doc, ...fast });
+  assert.equal(out.rows.length, 23);
+  assert.equal(out.rows[0].key, EXAMPLE_ROWS[0].key);
+});

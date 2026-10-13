@@ -1,7 +1,7 @@
 // Synthetic copy of a Waters Salesforce order's Assets page. Same DOM shape as a
 // real saved page: two Assets grids (the related-list preview sits in an inactive
 // console tab), "Preview" button text inside Asset Name, the "N items" status
-// line and the Orders breadcrumb. Account, contact and serials are made up.
+// line and the Orders breadcrumb. The preview's wrapper classes are the real record-page ones. Account, contact and serials are made up.
 // Never replace this with a real page: real pages carry customer data.
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -53,17 +53,17 @@ export function gridHtml(rows, columns = VISIBLE_COLUMNS) {
 
 const status = text => `<p class="slds-text-body--small"><force-list-view-manager-status-info><span><span class="countSortedByFilteredBy">${esc(text)}</span></span></force-list-view-manager-status-info></p>`;
 
-export function assetsPageHtml({ rows = EXAMPLE_ROWS, rendered = rows.length, previewRows = rows.slice(0, 6), itemCount = `${rows.length} items`, orderNumber = '02000001', columns = VISIBLE_COLUMNS } = {}) {
+export function assetsPageHtml({ rows = EXAMPLE_ROWS, rendered = rows.length, previewRows = rows.slice(0, 6), itemCount = `${rows.length} items`, orderNumber = '02000001', crumbRecordId = '801000000000001AAA', columns = VISIBLE_COLUMNS } = {}) {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>Assets | Salesforce</title>
 <style>.tabContent:not(.active),.windowViewMode-minimized{display:none}.slds-scrollable_y{overflow-y:auto;height:420px}.slds-assistive-text{position:absolute;clip:rect(0 0 0 0)}</style></head>
 <body><div class="oneWorkspace active navexWorkspace">
-<section class="tabContent oneConsoleTab"><div class="windowViewMode-minimized lafPageHost"><div class="forceRelatedListPreviewAdvancedGrid">
+<section class="tabContent oneConsoleTab"><div class="windowViewMode-minimized lafPageHost"><div class="oneRecordHomeFlexipage2Wrapper"><div class="record-page-decorator">
 ${status(`${previewRows.length} items • Sorted by Last Modified •`)}
 <div class="slds-scrollable_y">${gridHtml(previewRows, PREVIEW_COLUMNS)}</div>
-</div></div></section>
+</div></div></div></section>
 <section class="tabContent active oneConsoleTab"><div class="windowViewMode-maximized active lafPageHost"><div class="forceRelatedListDesktop">
-<ol class="slds-breadcrumb slds-list_horizontal slds-wrap"><li class="slds-breadcrumb__item"><a title="Orders" href="https://waters.lightning.force.com/lightning/o/Order/home">Orders</a></li><li class="slds-breadcrumb__item"><a title="${esc(orderNumber)}" href="https://waters.lightning.force.com/lightning/r/801000000000001AAA/view">${esc(orderNumber)}</a></li></ol>
+<ol class="slds-breadcrumb slds-list_horizontal slds-wrap"><li class="slds-breadcrumb__item"><a title="Orders" href="https://waters.lightning.force.com/lightning/o/Order/home">Orders</a></li><li class="slds-breadcrumb__item"><a title="${esc(orderNumber)}" href="https://waters.lightning.force.com/lightning/r/${esc(crumbRecordId)}/view">${esc(orderNumber)}</a></li></ol>
 <h1>Assets</h1>
 ${status(`${itemCount} • Sorted by Product Name •`)}
 <div class="slds-table_header-fixed_container slds-scrollable_x"><div class="slds-scrollable_y">${gridHtml(rows.slice(0, rendered), columns)}</div></div>

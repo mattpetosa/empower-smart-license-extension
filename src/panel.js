@@ -30,6 +30,7 @@ function errorText(out) {
     const cols = out.missingColumns;
     return `The Assets list doesn't show the ${cols.join(', ')} column${cols.length > 1 ? 's' : ''}, so it can't be read.`;
   }
+  if (out.error === 'stale-page') return 'Salesforce is still showing the previous order. Wait for the Assets list to finish loading and try again.';
   return OPEN_ASSETS;
 }
 

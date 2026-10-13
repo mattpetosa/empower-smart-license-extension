@@ -6,7 +6,10 @@
 (function (root) {
   'use strict';
   const NEEDED = ['Asset Name', 'Serial Number', 'Product Name'];
-  const ASSETS_URL_RE = /\/lightning\/r\/(?:[A-Za-z0-9_]+\/)?[A-Za-z0-9]{15,18}\/related\/Assets__r\/view/;
+  const ASSETS_URL_RE = /\/lightning\/r\/(?:[A-Za-z0-9_]+\/)?([A-Za-z0-9]{15,18})\/related\/Assets__r\/view/;
+  const RECORD_HREF_RE = /\/lightning\/r\/(?:[A-Za-z0-9_]+\/)?([A-Za-z0-9]{15,18})\/view/;
+  // The order's record page keeps a short preview of the same Assets list.
+  const RECORD_PAGE = '.oneRecordHomeFlexipage2Wrapper, .record-page-decorator';
   const COUNT_RE = /(\d[\d,]*)(\+)?\s+items?\b/i;
   const SKIP_TAGS = new Set(['BUTTON', 'INPUT', 'LABEL', 'STYLE', 'SCRIPT', 'TEMPLATE']);
 
@@ -23,8 +26,14 @@
     return out;
   }
 
+  function closestDeep(el, selector) {
+    for (let n = el; n; n = up(n)) if (n.matches(selector)) return n;
+    return null;
+  }
+
   function isShown(el) {
-    if (typeof el.checkVisibility === 'function') return el.checkVisibility();
+    // Lightning hides cached pages in more ways than display:none.
+    if (typeof el.checkVisibility === 'function') return el.checkVisibility({ visibilityProperty: true, opacityProperty: true });
     for (let n = el; n; n = up(n)) {
       if (n.hidden || n.getAttribute('aria-hidden') === 'true') return false;
       if ((n.getAttribute('style') || '').replace(/\s/g, '').includes('display:none')) return false;
@@ -54,7 +63,7 @@
   const headerLabels = table => [...table.querySelectorAll('th[role="columnheader"][aria-label]')].map(th => th.getAttribute('aria-label').trim());
 
   function pickGrid(doc) {
-    const shown = deepQueryAll(doc, 'table[role="grid"][aria-label="Assets"]').filter(isShown);
+    const shown = deepQueryAll(doc, 'table[role="grid"][aria-label="Assets"]').filter(t => isShown(t) && !closestDeep(t, RECORD_PAGE));
     if (!shown.length) return null;
     return shown.reduce((a, b) => (rowEls(b).length > rowEls(a).length ? b : a));
   }
@@ -86,16 +95,20 @@
     return null;
   }
 
-  // Breadcrumb "Orders > 02000001" above the grid.
-  function readOrderNumber(table) {
+  // Breadcrumb "Orders > 02000001" above the grid; its link names the order's record id.
+  function readCrumbs(table) {
     for (let n = up(table); n; n = up(n)) {
       const crumbs = [...n.querySelectorAll('.slds-breadcrumb a')];
       if (!crumbs.length) continue;
       const i = crumbs.findIndex(a => a.textContent.trim() === 'Orders' || (a.getAttribute('href') || '').includes('/lightning/o/Order/'));
-      return i >= 0 && crumbs[i + 1] ? crumbs[i + 1].textContent.trim() : '';
+      const link = i >= 0 ? crumbs[i + 1] : null;
+      if (!link) return { orderNumber: '', recordId: '' };
+      const m = RECORD_HREF_RE.exec(link.getAttribute('href') || '');
+      return { orderNumber: link.textContent.trim(), recordId: m ? m[1] : '' };
     }
-    return '';
+    return { orderNumber: '', recordId: '' };
   }
+  const readOrderNumber = table => readCrumbs(table).orderNumber;
 
   function mostCommon(values) {
     const counts = new Map();
@@ -110,9 +123,13 @@
     const url = opts.url || doc.location.href;
     const sleep = opts.sleep || (ms => new Promise(r => setTimeout(r, ms)));
     const waitMs = opts.waitMs ?? 1200, maxRounds = opts.maxRounds ?? 60;
-    if (!ASSETS_URL_RE.test(url)) return { error: 'not-assets-page' };
+    const urlMatch = ASSETS_URL_RE.exec(url);
+    if (!urlMatch) return { error: 'not-assets-page' };
     let table = pickGrid(doc);
     if (!table) return { error: 'no-grid' };
+    // A grid whose breadcrumb names another record is a cached page from an earlier order.
+    const crumb = readCrumbs(table).recordId;
+    if (crumb && crumb.slice(0, 15) !== urlMatch[1].slice(0, 15)) return { error: 'stale-page' };
     const labels = headerLabels(table);
     const missingColumns = NEEDED.filter(l => !labels.includes(l));
     if (missingColumns.length) return { error: 'missing-columns', missingColumns };
