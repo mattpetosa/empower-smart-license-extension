@@ -3,3 +3,4 @@ dist/
 *.zip
 # Real Salesforce pages contain customer data - never commit them
 real-pages/
+test-results/
