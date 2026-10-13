@@ -45,6 +45,16 @@ try {
   const sf = await context.newPage();
   await sf.goto(pageUrl);
   const tabId = await sw.evaluate(async url => (await chrome.tabs.query({})).find(t => t.url === url).id, pageUrl);
+  // Toolbar icon: green (title says ready) only on an order's Assets list.
+  const titleIs = async ready => {
+    for (let i = 0; i < 50; i++) {
+      const t = await sw.evaluate(id => chrome.action.getTitle({ tabId: id }), tabId);
+      if (/ready/i.test(t) === ready) return;
+      await new Promise(r => setTimeout(r, 100));
+    }
+    assert.fail(`toolbar title never became ${ready ? 'ready' : 'not ready'}`);
+  };
+  await titleIs(true);
 
   const panel = await context.newPage();
   await panel.goto(`chrome-extension://${extId}/src/panel.html?tabId=${tabId}`);
@@ -77,9 +87,13 @@ try {
 
   // A failed Read must not leave the previous order's results downloadable.
   await sf.goto(origin + B_RECORD);
+  await titleIs(false);
   await panel.click('#read');
   await panel.waitForSelector('#error:not([hidden])');
   assert.equal(await panel.isHidden('#review'), true);
+  // Salesforce moves between pages without reloading; the icon must follow.
+  await sf.evaluate(p => history.pushState(null, '', p), B_PATH);
+  await titleIs(true);
 
   await panel.goto(`chrome-extension://${extId}/src/panel.html?tabId=${tabId}`);
   await sf.goto(pageUrl);

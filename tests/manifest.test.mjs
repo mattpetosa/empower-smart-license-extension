@@ -35,6 +35,11 @@ test('panel loads only local scripts, engine first', () => {
 
 test('no network calls anywhere in shipped code', () => {
   for (const dir of ['src', 'vendor']) for (const f of readdirSync(path.join(root, dir)).filter(f => /\.(js|html)$/.test(f))) {
-    assert.doesNotMatch(readFileSync(path.join(root, dir, f), 'utf8'), /\bfetch\s*\(|XMLHttpRequest|WebSocket|sendBeacon|EventSource|importScripts/, `${dir}/${f}`);
+    assert.doesNotMatch(readFileSync(path.join(root, dir, f), 'utf8'), /\bfetch\s*\(|XMLHttpRequest|WebSocket|sendBeacon|EventSource|importScripts\s*\([^)]*(?:https?:|\/\/)/, `${dir}/${f}`);
   }
+});
+
+test('background loads only its own local scripts', () => {
+  const js = readFileSync(path.join(root, m.background.service_worker), 'utf8');
+  assert.deepEqual([...js.matchAll(/importScripts\(([^)]*)\)/g)].flatMap(x => x[1].split(',').map(s => s.trim().replace(/^'|'$/g, ''))), ['scrape-core.js', 'status.js']);
 });

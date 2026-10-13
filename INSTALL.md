@@ -18,7 +18,7 @@ your browser. The extension makes no network requests, so serials never leave yo
 ## Use
 
 1. In Salesforce, open the order → **Related** → **Assets** → **View All**.
-2. Click the extension's icon. A side panel opens.
+2. The extension's icon turns green when you're on an Assets list (grey everywhere else). Click it. A side panel opens.
 3. Click **Read assets from this page**. Rows that look like licenses are ticked;
    hardware is listed under **Other assets**. Tick or untick anything that's wrong.
 4. Check the Company / Order Number fields (filled in from the page) and add the
