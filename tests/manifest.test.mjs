@@ -29,7 +29,7 @@ test('every file the manifest names exists', () => {
 
 test('panel loads only local scripts, engine first', () => {
   const html = readFileSync(path.join(root, 'src/panel.html'), 'utf8');
-  assert.deepEqual([...html.matchAll(/<script src="([^"]+)"><\/script>/g)].map(x => x[1]), ['../vendor/core.js', 'detect.js', 'review.js', 'engine.js', 'panel.js']);
+  assert.deepEqual([...html.matchAll(/<script src="([^"]+)"><\/script>/g)].map(x => x[1]), ['../vendor/core.js', 'scrape-core.js', 'status.js', 'detect.js', 'review.js', 'engine.js', 'panel.js']);
   assert.doesNotMatch(html, /<script(?![^>]*\ssrc=)[^>]*>/, 'no inline scripts');
 });
 

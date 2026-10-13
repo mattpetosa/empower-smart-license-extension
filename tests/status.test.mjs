@@ -14,6 +14,7 @@ test('green on an order Assets list', () => {
   const s = actionState(ASSETS_URL);
   assert.equal(s.ready, true);
   assert.match(s.icon[16], /ready/);
+  assert.match(s.logo, /logo-ready\.svg$/);
   assert.match(s.title, /ready/i);
 });
 
@@ -37,5 +38,5 @@ test('grey icons are the manifest defaults; every icon exists', () => {
   const grey = actionState(undefined).icon, green = actionState(ASSETS_URL).icon;
   assert.deepEqual(Object.fromEntries(Object.entries(grey).map(([k, v]) => [k, v.replace(/^\//, '')])), m.action.default_icon);
   assert.deepEqual(Object.keys(green), Object.keys(grey));
-  for (const p of [...Object.values(grey), ...Object.values(green)]) assert.ok(existsSync(path.join(root, p)), p);
+  for (const p of [...Object.values(grey), ...Object.values(green), actionState(undefined).logo, actionState(ASSETS_URL).logo]) assert.ok(existsSync(path.join(root, p)), p);
 });

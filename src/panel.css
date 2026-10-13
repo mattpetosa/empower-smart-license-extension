@@ -54,3 +54,13 @@ tr.first td { border-top: 2px solid var(--line); }
 .output { margin-top: 18px; }
 .output[class*="env-"] h2 { color: var(--c); }
 .output[class*="env-"] .dl-csv { background: var(--c); border-color: var(--c); color: #fff; }
+
+/* Download all: small, at the very bottom, under every environment's own buttons. */
+.all { margin-top: 22px; padding: 8px 10px 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--soft); }
+.all h2 { margin: 0 0 6px; font-size: 12px; }
+.all-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.all-row label { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; cursor: pointer; }
+.all-row #all_select { margin-left: auto; }
+button.small { padding: 3px 9px; font-size: 12px; background: #fff; }
+#all_download { display: block; width: 100%; margin-top: 8px; }
+#all_download:not(:disabled) { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }

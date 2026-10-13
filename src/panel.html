@@ -8,7 +8,7 @@
 </head>
 <body>
 <header class="masthead">
-  <img src="../icons/logo.svg" alt="" width="32" height="32">
+  <img id="logo" src="../icons/logo.svg" alt="" width="32" height="32">
   <div><h1>Empower Smart License Extension</h1><p class="sub">Salesforce Assets → Licensing Portal CSV</p></div>
 </header>
 <main>
@@ -35,10 +35,22 @@
     <label class="opt"><input type="checkbox" id="remove_zero"> Remove 0 qty</label>
 
     <div id="outputs"></div>
+
+    <section id="all" class="all">
+      <h2>Download all</h2>
+      <div class="all-row">
+        <label><input type="checkbox" id="all_csv"> Simple CSV <span class="muted" id="all_csv_n"></span></label>
+        <label><input type="checkbox" id="all_xlsx"> Detailed XLSX <span class="muted" id="all_xlsx_n"></span></label>
+        <button type="button" id="all_select" class="small">Select all</button>
+      </div>
+      <button type="button" id="all_download" class="small" disabled>Download</button>
+    </section>
     <p class="muted small">Everything happens in this browser. Nothing is sent anywhere.</p>
   </section>
 </main>
 <script src="../vendor/core.js"></script>
+<script src="scrape-core.js"></script>
+<script src="status.js"></script>
 <script src="detect.js"></script>
 <script src="review.js"></script>
 <script src="engine.js"></script>

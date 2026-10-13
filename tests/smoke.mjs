@@ -61,6 +61,8 @@ try {
 
   const panel = await context.newPage();
   await panel.goto(`chrome-extension://${extId}/src/panel.html?tabId=${tabId}`);
+  // The panel's logo goes green with the toolbar icon.
+  await panel.waitForSelector('#logo[data-ready="true"][src$="logo-ready.svg"]');
   await panel.click('#read');
   await panel.waitForSelector('.output .licenses tbody td.serial');
   assert.equal(await panel.textContent('.output .licenses tbody td.serial'), 'DD0000000000123456');
@@ -91,12 +93,14 @@ try {
   // A failed Read must not leave the previous order's results downloadable.
   await sf.goto(origin + B_RECORD);
   await titleIs(false);
+  await panel.waitForSelector('#logo[data-ready="false"][src$="/logo.svg"]');
   await panel.click('#read');
   await panel.waitForSelector('#error:not([hidden])');
   assert.equal(await panel.isHidden('#review'), true);
   // Salesforce moves between pages without reloading; the icon must follow.
   await sf.evaluate(p => history.pushState(null, '', p), B_PATH);
   await titleIs(true);
+  await panel.waitForSelector('#logo[data-ready="true"]');
 
   // Three environments: assign each license to one, download one file per environment.
   await sf.goto(origin + C_PATH);
@@ -129,6 +133,21 @@ try {
   });
   const [x3] = await Promise.all([panel.waitForEvent('download'), panel.click('.output[data-env="EM0TEST003"] .dl-xlsx')]);
   assert.equal(x3.suggestedFilename(), 'Northwind_Labs_EM0TEST003_02000003_Detailed_ESLC.xlsx');
+
+  // Download all: nothing ticked, then one format, then Select all = every file in both.
+  assert.equal(await panel.isDisabled('#all_download'), true);
+  await panel.check('#all_csv');
+  assert.equal(await panel.textContent('#all_download'), 'Download 3 files');
+  await panel.click('#all_select');
+  assert.equal(await panel.textContent('#all_download'), 'Download 6 files');
+  assert.equal(await panel.textContent('#all_select'), 'Clear');
+  const all = [];
+  panel.on('download', d => all.push(d));
+  await panel.click('#all_download');
+  for (let i = 0; i < 50 && all.length < 6; i++) await new Promise(r => setTimeout(r, 100));
+  const names = all.map(d => d.suggestedFilename()).sort();
+  assert.deepEqual(names, [...Object.keys(files), ...env.map(e => `Northwind_Labs_${e}_${e === 'EM0TEST001' ? 'Prod_' : ''}02000003_Detailed_ESLC.xlsx`)].sort());
+  for (const d of all) if (d.suggestedFilename().endsWith('.csv')) assert.equal(readFileSync(await d.path(), 'utf8'), files[d.suggestedFilename()]);
   await panel.screenshot({ path: path.join(root, 'test-results', 'panel-envs.png'), fullPage: true });
 
   await panel.goto(`chrome-extension://${extId}/src/panel.html?tabId=${tabId}`);

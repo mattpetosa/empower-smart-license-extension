@@ -18,7 +18,8 @@ your browser. The extension makes no network requests, so serials never leave yo
 ## Use
 
 1. In Salesforce, open the order → **Related** → **Assets** → **View All**.
-2. The extension's icon turns green when you're on an Assets list (grey everywhere else). Click it. A side panel opens.
+2. The extension's icon turns green when you're on an Assets list (grey everywhere else). Click it. A side panel opens;
+   its logo is green too while the current tab can be read.
 3. Click **Read assets from this page**. Rows that look like licenses are ticked;
    hardware is listed under **Other assets**. Tick or untick anything that's wrong.
 4. Check Company / Order Number / Support Plan ID (filled in from the page; the Support
@@ -33,6 +34,10 @@ doesn't say which license belongs where: click **1**, **2** or **3** on each lic
 put it in that environment (click again to take it out). A yellow line counts the likely
 licenses not placed yet. Optionally name each environment (e.g. Prod); the name goes in
 the file name. Each environment has its own download buttons.
+
+**Download all** (bottom of the panel): tick Simple CSV, Detailed XLSX, or **Select all**
+for both, then **Download**. You get one file per environment in each ticked format.
+Chrome may ask once to allow this extension to download multiple files; click Allow.
 
 ## Update
 

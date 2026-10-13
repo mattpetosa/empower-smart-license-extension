@@ -189,6 +189,7 @@ function render() {
   const opts = { removeSqt: $('remove_sqt').checked, removeZero: $('remove_zero').checked };
   results = new Map(envs.map(e => [e.id, ESLE_engine.cleanAssets(ESLE_review.rowsIn(rows, envs, decided, e.id), opts)]));
   $('outputs').replaceChildren(...envs.map((e, i) => outputBlock(e, i, results.get(e.id))));
+  renderAll();
   if (!multi()) return show('unassigned');
   for (const card of $('envs').querySelectorAll('.env')) card.querySelector('.count').textContent = `· ${plural(results.get(card.dataset.env).licenses.length, 'license')}`;
   const left = ESLE_review.unassignedLikely(rows, envs, decided);
@@ -197,7 +198,7 @@ function render() {
 
 function download(e, kind) {
   const res = results.get(e.id);
-  if (!res) return;
+  if (!res || !res.licenses.length) return;
   const fields = multi() ? { ...fieldValues(), support_id: e.supportId, environment: labels.get(e.id) || '' } : fieldValues();
   const f = ESLE_engine.buildFiles(res, fields);
   const blob = kind === 'csv'
@@ -210,5 +211,49 @@ function download(e, kind) {
   setTimeout(() => URL.revokeObjectURL(a.href), 10000);
 }
 
+// Download all: every environment that has licenses, in each ticked format.
+const KINDS = [['csv', 'all_csv'], ['xlsx', 'all_xlsx']];
+const filled = () => envs.filter(e => results.get(e.id)?.licenses.length);
+const ticked = () => KINDS.filter(([, id]) => $(id).checked).map(([kind]) => kind);
+
+function renderAll() {
+  const n = filled().length, files = n * ticked().length;
+  for (const [, id] of KINDS) $(`${id}_n`).textContent = multi() ? `(${plural(n, 'file')})` : '';
+  const every = KINDS.every(([, id]) => $(id).checked);
+  $('all_select').textContent = every ? 'Clear' : 'Select all';
+  $('all_download').disabled = !files;
+  $('all_download').textContent = files ? `Download ${plural(files, 'file')}` : (n ? 'Tick a format to download' : 'No licenses to download');
+}
+
+async function downloadAll() {
+  const kinds = ticked();
+  for (const e of filled()) for (const kind of kinds) {
+    download(e, kind);
+    await new Promise(r => setTimeout(r, 250)); // back-to-back downloads can be dropped
+  }
+}
+
+// The logo goes green, like the toolbar icon, while the tab can be read.
+async function showReady() {
+  let tab = null;
+  try { tab = await targetTab(); } catch { /* tab closed */ }
+  const s = ESLE_status.actionState(tab && tab.url);
+  $('logo').src = s.logo;
+  $('logo').title = s.title;
+  $('logo').dataset.ready = String(s.ready);
+}
+
 $('read').addEventListener('click', read);
+for (const [, id] of KINDS) $(id).addEventListener('change', renderAll);
+$('all_select').addEventListener('click', () => {
+  const every = KINDS.every(([, id]) => $(id).checked);
+  for (const [, id] of KINDS) $(id).checked = !every;
+  renderAll();
+});
+$('all_download').addEventListener('click', downloadAll);
+chrome.tabs.onActivated.addListener(showReady);
+// Salesforce changes the address without reloading; Chrome still reports it here.
+chrome.tabs.onUpdated.addListener((tabId, change) => { if (change.url || change.status) showReady(); });
+chrome.windows.onFocusChanged.addListener(showReady);
+showReady();
 for (const id of ['remove_sqt', 'remove_zero']) $(id).addEventListener('change', () => { if (rows.length) render(); });
