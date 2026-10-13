@@ -160,6 +160,7 @@
       complete: !expected || (!expected.plus && list.length >= expected.count),
       accountName: mostCommon(list.map(r => r.accountName)),
       orderNumber: readOrderNumber(table),
+      recordId: urlMatch[1],
     };
   }
 

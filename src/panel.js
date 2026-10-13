@@ -6,6 +6,7 @@ const $ = id => document.getElementById(id);
 const FIELDS = ['company', 'support_id', 'order_number', 'sold_to'];
 const OPEN_ASSETS = "Open an order's Assets list (Related → Assets → View All) and try again.";
 let rows = [], ticked = new Set(), current = null;
+let lastOrder = null; // record id of the order the review currently shows
 const decided = new Map(); // key -> the person's own tick, kept across re-reads
 
 function el(tag, props = {}, ...kids) { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; }
@@ -36,6 +37,8 @@ function errorText(out) {
 
 async function read() {
   show('error'); show('warning');
+  // Never leave an earlier order's results downloadable under a new Read's error.
+  $('review').hidden = true;
   const btn = $('read');
   btn.disabled = true; btn.textContent = 'Reading…';
   try {
@@ -45,10 +48,18 @@ async function read() {
     let out;
     try { out = await scrapeTab(tab.id); } catch (e) { return show('error', `Couldn't read this tab: ${e.message}`); }
     if (!out || out.error) return show('error', errorText(out || {}));
+    const orderId = (out.recordId || '').slice(0, 15);
+    if (orderId !== lastOrder) {
+      // A different order: its details replace the last order's, typed ones included.
+      lastOrder = orderId;
+      decided.clear();
+      $('company').value = out.accountName || '';
+      $('order_number').value = out.orderNumber || '';
+      $('support_id').value = '';
+      $('sold_to').value = '';
+    }
     rows = out.rows;
     ticked = new Set(rows.filter(r => (decided.has(r.key) ? decided.get(r.key) : ESLE_detect.looksLikeLicense(r))).map(r => r.key));
-    if (out.accountName && !$('company').value.trim()) $('company').value = out.accountName;
-    if (out.orderNumber && !$('order_number').value.trim()) $('order_number').value = out.orderNumber;
     if (!out.complete) {
       show('warning', out.expected.plus
         ? `Read ${rows.length} assets, but Salesforce still shows ${out.expected.count}+. If the list has more, scroll to the bottom and click Read again.`

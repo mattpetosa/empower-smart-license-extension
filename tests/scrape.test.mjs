@@ -158,3 +158,8 @@ test('real-browser visibility asks for visibility and opacity too', async () => 
   assert.equal(out.rows.length, 23);
   assert.equal(out.rows[0].key, EXAMPLE_ROWS[0].key);
 });
+
+test('reports the order record id from the URL', async () => {
+  const out = await S.readAssets({ doc: load(assetsPageHtml()), ...fast });
+  assert.equal(out.recordId, '801000000000001AAA');
+});
