@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Empower Smart License Extension",
   "short_name": "Smart License",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Turns a Waters Salesforce order's Assets list into the License Cleaner's Simple CSV for the Licensing Portal, in your browser.",
   "minimum_chrome_version": "116",
   "permissions": ["sidePanel", "scripting"],

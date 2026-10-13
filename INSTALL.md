@@ -21,10 +21,18 @@ your browser. The extension makes no network requests, so serials never leave yo
 2. The extension's icon turns green when you're on an Assets list (grey everywhere else). Click it. A side panel opens.
 3. Click **Read assets from this page**. Rows that look like licenses are ticked;
    hardware is listed under **Other assets**. Tick or untick anything that's wrong.
-4. Check the Company / Order Number fields (filled in from the page) and add the
-   Support Plan ID / Sold To if you want them in the file name.
+4. Check Company / Order Number / Support Plan ID (filled in from the page; the Support
+   Plan ID is the serial of the **S/W Benefits Info** row) and add Sold To if you want it
+   in the file name.
 5. Click **Download Simple CSV for Licensing Portal** and upload it to the Waters
    Licensing Portal. **Download Detailed XLSX** gives the categorized workbook.
+
+**Orders with several environments** (several S/W Benefits Info rows, e.g. Prod/Dev/Test):
+each environment gets a colour and a number. Nothing is pre-ticked, because Salesforce
+doesn't say which license belongs where: click **1**, **2** or **3** on each license to
+put it in that environment (click again to take it out). A yellow line counts the likely
+licenses not placed yet. Optionally name each environment (e.g. Prod); the name goes in
+the file name. Each environment has its own download buttons.
 
 ## Update
 

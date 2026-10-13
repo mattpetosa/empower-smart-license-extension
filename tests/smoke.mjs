@@ -9,7 +9,7 @@ import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:f
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { assetsPageHtml, ASSETS_PATH, EXAMPLE_ROWS } from './fixtures/build-fixture.mjs';
+import { assetsPageHtml, ASSETS_PATH, EXAMPLE_ROWS, MULTI_ENV_ROWS } from './fixtures/build-fixture.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const work = mkdtempSync(path.join(tmpdir(), 'esle-smoke-'));
@@ -23,7 +23,10 @@ writeFileSync(path.join(ext, 'manifest.json'), JSON.stringify(manifest, null, 2)
 const B_ID = '801000000000002AAA';
 const B_PATH = `/lightning/r/Order/${B_ID}/related/Assets__r/view`, B_RECORD = `/lightning/r/Order/${B_ID}/view`;
 const bRows = EXAMPLE_ROWS.map((r, i) => ({ ...r, key: r.key.replace('AAA', 'BBB'), accountName: 'Fabrikam Inc', serial: i === 1 ? 'DD0000000000654321' : r.serial }));
+// Order C: three environments, one Support ID each.
+const C_ID = '801000000000003AAA', C_PATH = `/lightning/r/Order/${C_ID}/related/Assets__r/view`;
 const pages = {
+  [C_PATH]: assetsPageHtml({ rows: MULTI_ENV_ROWS, orderNumber: '02000003', crumbRecordId: C_ID }),
   [ASSETS_PATH]: assetsPageHtml(),
   [B_PATH]: assetsPageHtml({ rows: bRows, orderNumber: '02000002', crumbRecordId: B_ID }),
   [B_RECORD]: '<!doctype html><title>Order | Salesforce</title><h1>Order 02000002</h1>',
@@ -59,17 +62,17 @@ try {
   const panel = await context.newPage();
   await panel.goto(`chrome-extension://${extId}/src/panel.html?tabId=${tabId}`);
   await panel.click('#read');
-  await panel.waitForSelector('#licenses tbody td.serial');
-  assert.equal(await panel.textContent('#licenses tbody td.serial'), 'DD0000000000123456');
+  await panel.waitForSelector('.output .licenses tbody td.serial');
+  assert.equal(await panel.textContent('.output .licenses tbody td.serial'), 'DD0000000000123456');
   assert.equal(await panel.inputValue('#company'), 'Contoso Labs Inc');
   assert.equal(await panel.inputValue('#order_number'), '02000001');
   assert.equal(await panel.isHidden('#warning'), true);
 
-  const [csv] = await Promise.all([panel.waitForEvent('download'), panel.click('#dl-csv')]);
+  const [csv] = await Promise.all([panel.waitForEvent('download'), panel.click('.output .dl-csv')]);
   assert.equal(csv.suggestedFilename(), 'Contoso_Labs_Inc_02000001_Simple_ESLC.csv');
   assert.equal(readFileSync(await csv.path(), 'utf8'), 'Serial_Numbers\r\nDD0000000000123456\r\n');
 
-  const [xlsx] = await Promise.all([panel.waitForEvent('download'), panel.click('#dl-xlsx')]);
+  const [xlsx] = await Promise.all([panel.waitForEvent('download'), panel.click('.output .dl-xlsx')]);
   assert.equal(xlsx.suggestedFilename(), 'Contoso_Labs_Inc_02000001_Detailed_ESLC.xlsx');
   assert.equal(readFileSync(await xlsx.path()).subarray(0, 2).toString(), 'PK');
 
@@ -77,11 +80,11 @@ try {
   await panel.fill('#support_id', 'SP-A');
   await sf.goto(origin + B_PATH);
   await panel.click('#read');
-  await panel.waitForFunction(() => document.querySelector('#licenses tbody td.serial')?.textContent === 'DD0000000000654321');
+  await panel.waitForFunction(() => document.querySelector('.output .licenses tbody td.serial')?.textContent === 'DD0000000000654321');
   assert.equal(await panel.inputValue('#company'), 'Fabrikam Inc');
   assert.equal(await panel.inputValue('#order_number'), '02000002');
   assert.equal(await panel.inputValue('#support_id'), '');
-  const [csvB] = await Promise.all([panel.waitForEvent('download'), panel.click('#dl-csv')]);
+  const [csvB] = await Promise.all([panel.waitForEvent('download'), panel.click('.output .dl-csv')]);
   assert.equal(csvB.suggestedFilename(), 'Fabrikam_Inc_02000002_Simple_ESLC.csv');
   assert.equal(readFileSync(await csvB.path(), 'utf8'), 'Serial_Numbers\r\nDD0000000000654321\r\n');
 
@@ -95,10 +98,43 @@ try {
   await sf.evaluate(p => history.pushState(null, '', p), B_PATH);
   await titleIs(true);
 
+  // Three environments: assign each license to one, download one file per environment.
+  await sf.goto(origin + C_PATH);
+  await panel.click('#read');
+  await panel.waitForSelector('#envs:not([hidden]) .env');
+  assert.deepEqual(await panel.$$eval('#envs .env .sid', es => es.map(e => e.textContent)), ['EM0TEST001', 'EM0TEST002', 'EM0TEST003']);
+  assert.equal(await panel.isHidden('#support_id'), true);
+  assert.match(await panel.textContent('#unassigned'), /^8 likely licenses/);
+  assert.equal(await panel.$$eval('#likely button.chip[aria-pressed="true"]', es => es.length), 0, 'nothing pre-assigned');
+  const env = ['EM0TEST001', 'EM0TEST002', 'EM0TEST003'];
+  const chip = (row, e) => panel.click(`li[data-key="${row.key}"] button.chip[data-env="${e}"]`);
+  const prod = p => MULTI_ENV_ROWS.filter(r => r.productName === p);
+  const plan = [...prod('Empower Enterprise Base License 3 YR').map((r, i) => [r, env[i]]),
+    ...prod('Empower Named User License (5) 3 YR').map((r, i) => [r, env[i]]),
+    ...prod('Emp Enterprise Dissolution Option 3 YR').map((r, i) => [r, env[i]])];
+  await chip(plan[0][0], env[2]); // a wrong click first; the next one moves it
+  for (const [row, e] of plan) await chip(row, e);
+  assert.equal(await panel.isHidden('#unassigned'), true);
+  assert.match(await panel.getAttribute(`li[data-key="${plan[0][0].key}"]`, 'class'), /\benv-0\b/);
+  await panel.fill('#envs .env[data-env="EM0TEST001"] input', 'Prod');
+  const files = {};
+  for (const e of env) {
+    const [d] = await Promise.all([panel.waitForEvent('download'), panel.click(`.output[data-env="${e}"] .dl-csv`)]);
+    files[d.suggestedFilename()] = readFileSync(await d.path(), 'utf8');
+  }
+  assert.deepEqual(files, {
+    'Northwind_Labs_EM0TEST001_Prod_02000003_Simple_ESLC.csv': 'Serial_Numbers\r\nDD0000000000900001\r\nDD0000000000900101\r\nDD0000000000900201\r\n',
+    'Northwind_Labs_EM0TEST002_02000003_Simple_ESLC.csv': 'Serial_Numbers\r\nDD0000000000900002\r\nDD0000000000900102\r\nDD0000000000900202\r\n',
+    'Northwind_Labs_EM0TEST003_02000003_Simple_ESLC.csv': 'Serial_Numbers\r\nDD0000000000900003\r\nDD0000000000900203\r\n',
+  });
+  const [x3] = await Promise.all([panel.waitForEvent('download'), panel.click('.output[data-env="EM0TEST003"] .dl-xlsx')]);
+  assert.equal(x3.suggestedFilename(), 'Northwind_Labs_EM0TEST003_02000003_Detailed_ESLC.xlsx');
+  await panel.screenshot({ path: path.join(root, 'test-results', 'panel-envs.png'), fullPage: true });
+
   await panel.goto(`chrome-extension://${extId}/src/panel.html?tabId=${tabId}`);
   await sf.goto(pageUrl);
   await panel.click('#read');
-  await panel.waitForSelector('#licenses tbody td.serial');
+  await panel.waitForSelector('.output .licenses tbody td.serial');
   await panel.screenshot({ path: path.join(root, 'test-results', 'panel.png'), fullPage: true });
   console.log('SMOKE OK');
 } finally {

@@ -1,5 +1,6 @@
 :root { --ink: #1f2937; --muted: #6b7280; --line: #e5e7eb; --accent: #4b5563; --accent-ink: #fff; --bg: #fff; --soft: #f3f4f6; --warn-bg: #fef3c7; --warn: #92400e; --err-bg: #fee2e2; --err: #991b1b; }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { margin: 0; font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: var(--bg); }
 .masthead { display: flex; gap: 10px; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--line); }
 .masthead h1 { font-size: 14px; margin: 0; }
@@ -35,3 +36,21 @@ td.qty { text-align: center; }
 tr.first td { border-top: 2px solid var(--line); }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .actions button { flex: 1 1 auto; }
+
+/* Environments: one colour each (numbers too, so colour is never the only cue). */
+.env-0 { --c: #2563eb; --cs: #dbeafe; } .env-1 { --c: #d97706; --cs: #fef3c7; } .env-2 { --c: #7c3aed; --cs: #ede9fe; }
+.env-3 { --c: #0d9488; --cs: #ccfbf1; } .env-4 { --c: #db2777; --cs: #fce7f3; }
+.envs { display: grid; gap: 6px; }
+.env { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; padding: 6px 8px; border: 2px solid var(--c); border-radius: 7px; background: var(--cs); }
+.env .n { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--c); color: #fff; font-size: 12px; font-weight: 700; }
+.env .sid { font-family: ui-monospace, Consolas, monospace; font-weight: 600; }
+.env input { font: inherit; width: 96px; padding: 2px 5px; border: 1px solid var(--line); border-radius: 4px; }
+.checklist li.pick { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; padding: 5px 6px; border-bottom: 1px solid var(--line); border-left: 5px solid transparent; }
+.checklist li.pick[class*="env-"] { border-left-color: var(--c); background: var(--cs); }
+.checklist li.pick .row { display: grid; }
+.chips { display: flex; gap: 4px; }
+.chip { width: 26px; height: 26px; padding: 0; border-radius: 50%; border: 2px solid var(--c); background: #fff; color: var(--c); font-weight: 700; font-size: 12px; }
+.chip[aria-pressed="true"] { background: var(--c); color: #fff; }
+.output { margin-top: 18px; }
+.output[class*="env-"] h2 { color: var(--c); }
+.output[class*="env-"] .dl-csv { background: var(--c); border-color: var(--c); color: #fff; }

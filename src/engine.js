@@ -4,8 +4,8 @@
 (function (root) {
   'use strict';
   const ESLC = (typeof module !== 'undefined' && module.exports) ? require('../vendor/core.js') : root.ESLC;
-  const FIELD_ORDER = ['company', 'support_id', 'order_number', 'sold_to'];
-  const FIELD_LABELS = { company: 'Company', support_id: 'Support ID', order_number: 'Order Number', sold_to: 'Sold To' };
+  const FIELD_ORDER = ['company', 'support_id', 'environment', 'order_number', 'sold_to'];
+  const FIELD_LABELS = { company: 'Company', support_id: 'Support ID', environment: 'Environment', order_number: 'Order Number', sold_to: 'Sold To' };
   const licenseName = r => (r.productName || r.assetName || '').trim();
   const describe = r => `${licenseName(r) || '(no name)'} | ${String(r.serial || '').trim() || '(no serial)'}`;
 

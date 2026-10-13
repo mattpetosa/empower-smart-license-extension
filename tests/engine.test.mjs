@@ -102,3 +102,9 @@ test('a swallowed row is reported even when its serial appears in another remove
   ]);
   assert.ok(res.removed.some(r => r.reason === 'Not recognized by the License Cleaner' && r.raw === 'Empower 3 Personal Option | TBD'), JSON.stringify(res.removed));
 });
+
+test('an environment name goes after the Support ID, in the file names and the details', () => {
+  const f = { company: 'Northwind Labs', support_id: 'EM0TEST001', environment: 'Prod', order_number: '02000003' };
+  assert.deepEqual(E.fileNames(f), { csv: 'Northwind_Labs_EM0TEST001_Prod_02000003_Simple_ESLC.csv', xlsx: 'Northwind_Labs_EM0TEST001_Prod_02000003_Detailed_ESLC.xlsx' });
+  assert.deepEqual(E.details(f), [['Company', 'Northwind Labs'], ['Support ID', 'EM0TEST001'], ['Environment', 'Prod'], ['Order Number', '02000003']]);
+});

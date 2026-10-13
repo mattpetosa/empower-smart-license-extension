@@ -19,33 +19,28 @@
   </section>
   <section id="review" hidden>
     <h2>Assets <span id="assetcount" class="muted"></span></h2>
+    <div id="envs" hidden><h3 id="envtitle"></h3><div class="envs"></div></div>
+    <p id="unassigned" class="msg warning" hidden></p>
     <div id="likely"><h3>Likely licenses</h3><ul class="checklist"></ul></div>
     <details id="otherbox"><summary>Other assets (<span id="othercount">0</span>)</summary><ul class="checklist"></ul></details>
 
     <h2>Details</h2>
     <div class="fields">
       <label>Company <input id="company" autocomplete="off"></label>
-      <label>Support Plan ID <input id="support_id" autocomplete="off"></label>
+      <label id="support_id_row">Support Plan ID <input id="support_id" autocomplete="off"></label>
       <label>Order Number <input id="order_number" autocomplete="off"></label>
       <label>Sold To <input id="sold_to" autocomplete="off"></label>
     </div>
     <label class="opt"><input type="checkbox" id="remove_sqt"> Remove SQTs <span class="muted">(any license with "SQT" in its name)</span></label>
     <label class="opt"><input type="checkbox" id="remove_zero"> Remove 0 qty</label>
 
-    <h2>Cleaned licenses <span id="meta" class="muted"></span></h2>
-    <table id="licenses"><thead><tr><th>Category</th><th>License</th><th>Qty</th><th>Serial No</th></tr></thead><tbody></tbody></table>
-    <details id="removedbox" hidden><summary>Removed / skipped (<span id="removedcount">0</span>)</summary>
-      <table id="removed"><tbody></tbody></table>
-    </details>
-    <div class="actions">
-      <button id="dl-csv" class="primary" disabled>Download Simple CSV for Licensing Portal</button>
-      <button id="dl-xlsx" disabled>Download Detailed XLSX</button>
-    </div>
+    <div id="outputs"></div>
     <p class="muted small">Everything happens in this browser. Nothing is sent anywhere.</p>
   </section>
 </main>
 <script src="../vendor/core.js"></script>
 <script src="detect.js"></script>
+<script src="review.js"></script>
 <script src="engine.js"></script>
 <script src="panel.js"></script>
 </body>

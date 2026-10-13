@@ -5,13 +5,17 @@
 const $ = id => document.getElementById(id);
 const FIELDS = ['company', 'support_id', 'order_number', 'sold_to'];
 const OPEN_ASSETS = "Open an order's Assets list (Related → Assets → View All) and try again.";
-let rows = [], ticked = new Set(), current = null;
+let rows = [], envs = [], results = new Map();
 let lastOrder = null; // record id of the order the review currently shows
-const decided = new Map(); // key -> the person's own tick, kept across re-reads
+const decided = new Map(); // key -> environment id or null: the person's own choice, kept across re-reads
+const labels = new Map(); // environment id -> the person's name for it (Prod, Dev...)
 
 function el(tag, props = {}, ...kids) { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; }
 function show(id, text) { const e = $(id); e.textContent = text || ''; e.hidden = !text; }
 const fieldValues = () => Object.fromEntries(FIELDS.map(k => [k, $(k).value]));
+const multi = () => envs.length > 1;
+const colour = i => `env-${i % 5}`;
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 async function targetTab() {
   const forced = new URLSearchParams(location.search).get('tabId'); // smoke test opens the panel as a normal tab
@@ -48,24 +52,28 @@ async function read() {
     let out;
     try { out = await scrapeTab(tab.id); } catch (e) { return show('error', `Couldn't read this tab: ${e.message}`); }
     if (!out || out.error) return show('error', errorText(out || {}));
-    const orderId = (out.recordId || '').slice(0, 15);
-    if (orderId !== lastOrder) {
+    const orderId = (out.recordId || '').slice(0, 15), newOrder = orderId !== lastOrder;
+    if (newOrder) {
       // A different order: its details replace the last order's, typed ones included.
       lastOrder = orderId;
       decided.clear();
+      labels.clear();
       $('company').value = out.accountName || '';
       $('order_number').value = out.orderNumber || '';
       $('support_id').value = '';
       $('sold_to').value = '';
     }
-    rows = out.rows;
-    ticked = new Set(rows.filter(r => (decided.has(r.key) ? decided.get(r.key) : ESLE_detect.looksLikeLicense(r))).map(r => r.key));
+    envs = ESLE_review.environmentsOf(out.rows);
+    rows = ESLE_review.reviewRows(out.rows);
+    if (!multi() && envs[0].supportId && (newOrder || !$('support_id').value)) $('support_id').value = envs[0].supportId;
+    $('support_id_row').hidden = multi();
     if (!out.complete) {
       show('warning', out.expected.plus
-        ? `Read ${rows.length} assets, but Salesforce still shows ${out.expected.count}+. If the list has more, scroll to the bottom and click Read again.`
-        : `Read ${rows.length} of ${out.expected.count} assets. Scroll the list to the bottom and click Read again.`);
+        ? `Read ${out.rows.length} assets, but Salesforce still shows ${out.expected.count}+. If the list has more, scroll to the bottom and click Read again.`
+        : `Read ${out.rows.length} of ${out.expected.count} assets. Scroll the list to the bottom and click Read again.`);
     }
     $('review').hidden = false;
+    renderEnvs();
     renderChecklist();
     render();
   } finally {
@@ -73,37 +81,85 @@ async function read() {
   }
 }
 
+function renderEnvs() {
+  $('envs').hidden = !multi();
+  const box = $('envs').querySelector('.envs');
+  box.replaceChildren();
+  if (!multi()) return;
+  $('envtitle').textContent = `${envs.length} environments on this order. Click a number on each license to put it in that environment.`;
+  envs.forEach((e, i) => {
+    const name = el('input', { value: labels.get(e.id) || '', placeholder: 'e.g. Prod', autocomplete: 'off' });
+    name.setAttribute('aria-label', `Name for environment ${i + 1}`);
+    name.addEventListener('input', () => { labels.set(e.id, name.value.trim()); render(); });
+    const card = el('div', { className: `env ${colour(i)}` },
+      el('span', { className: 'n', textContent: i + 1 }),
+      el('div', {}, el('span', { className: 'sid', textContent: e.supportId }), ' ', el('span', { className: 'count muted small' })),
+      name);
+    card.dataset.env = e.id;
+    box.append(card);
+  });
+}
+
+// Product name first: it says what the asset is, and many Asset Names are just "Undefined".
+function rowText(r) {
+  const asset = /^\s*undefined\s*$/i.test(r.assetName || '') || r.assetName === r.productName ? '' : r.assetName;
+  return [el('span', { className: 'name', textContent: r.productName || r.assetName || '(no name)' }),
+    el('span', { className: 'product', textContent: r.productName ? asset : '' }),
+    el('span', { className: 'serial', textContent: r.serial || '(no serial)' })];
+}
+
+// One environment: a tick box. Several: a numbered, coloured button per environment.
+function rowItem(r) {
+  const li = el('li');
+  li.dataset.key = r.key;
+  if (!multi()) {
+    const cb = el('input', { type: 'checkbox', checked: ESLE_review.envOf(r, envs, decided) === envs[0].id });
+    cb.addEventListener('change', () => { decided.set(r.key, cb.checked ? envs[0].id : null); render(); });
+    li.append(el('label', {}, cb, ...rowText(r)));
+    return li;
+  }
+  const chips = envs.map((e, i) => {
+    const b = el('button', { type: 'button', className: `chip ${colour(i)}`, textContent: i + 1, title: `Environment ${i + 1} · ${e.supportId}` });
+    b.dataset.env = e.id;
+    b.addEventListener('click', () => {
+      decided.set(r.key, ESLE_review.envOf(r, envs, decided) === e.id ? null : e.id);
+      paint(li, r);
+      render();
+    });
+    return b;
+  });
+  li.append(el('div', { className: 'row' }, ...rowText(r)), el('div', { className: 'chips' }, ...chips));
+  paint(li, r);
+  return li;
+}
+
+function paint(li, r) {
+  const id = ESLE_review.envOf(r, envs, decided), i = envs.findIndex(e => e.id === id);
+  li.className = i < 0 ? 'pick' : `pick ${colour(i)}`;
+  for (const b of li.querySelectorAll('button.chip')) b.setAttribute('aria-pressed', String(b.dataset.env === id));
+}
+
 function renderChecklist() {
   // Grouped by the rule, not by tick state, so rows don't jump when ticked.
-  const likely = rows.filter(r => ESLE_detect.looksLikeLicense(r)), other = rows.filter(r => !ESLE_detect.looksLikeLicense(r));
-  for (const [box, list] of [[$('likely'), likely], [$('otherbox'), other]]) {
-    const ul = box.querySelector('ul');
-    ul.replaceChildren();
-    for (const r of list) {
-      const cb = el('input', { type: 'checkbox', checked: ticked.has(r.key) });
-      cb.addEventListener('change', () => {
-        if (cb.checked) ticked.add(r.key); else ticked.delete(r.key);
-        decided.set(r.key, cb.checked);
-        render();
-      });
-      ul.append(el('li', {}, el('label', {}, cb,
-        el('span', { className: 'name', textContent: r.assetName || '(no name)' }),
-        el('span', { className: 'product', textContent: r.productName }),
-        el('span', { className: 'serial', textContent: r.serial || '(no serial)' }))));
-    }
-  }
-  if (!likely.length) $('likely').querySelector('ul').append(el('li', { className: 'muted', textContent: 'None found. Tick them under Other assets.' }));
+  // Sorted by product, so an environment's copies of the same license sit together.
+  const name = r => r.productName || r.assetName || '';
+  const sorted = [...rows].sort((a, b) => name(a).localeCompare(name(b)) || String(a.serial).localeCompare(String(b.serial)));
+  const likely = sorted.filter(r => ESLE_detect.looksLikeLicense(r)), other = sorted.filter(r => !ESLE_detect.looksLikeLicense(r));
+  for (const [box, list] of [[$('likely'), likely], [$('otherbox'), other]]) box.querySelector('ul').replaceChildren(...list.map(rowItem));
+  if (!likely.length) $('likely').querySelector('ul').append(el('li', { className: 'muted', textContent: 'None found. Look under Other assets.' }));
   $('likely').querySelector('h3').textContent = `Likely licenses (${likely.length})`;
   $('othercount').textContent = other.length;
   $('assetcount').textContent = `(${rows.length} read)`;
 }
 
-function render() {
-  current = ESLE_engine.cleanAssets(rows.filter(r => ticked.has(r.key)), { removeSqt: $('remove_sqt').checked, removeZero: $('remove_zero').checked });
-  const tb = $('licenses').querySelector('tbody');
-  tb.replaceChildren();
+function outputBlock(e, i, res) {
+  const n = res.licenses.length;
+  const title = multi()
+    ? `${i + 1} · ${labels.get(e.id) ? `${labels.get(e.id)} · ` : ''}${e.supportId}`
+    : 'Cleaned licenses';
+  const tb = el('tbody');
   let last = null;
-  for (const l of current.licenses) {
+  for (const l of res.licenses) {
     const first = l.category !== last;
     tb.append(el('tr', { className: first ? 'first' : '' },
       el('td', { className: 'cat', textContent: first ? l.category : '' }),
@@ -112,19 +168,38 @@ function render() {
       el('td', { className: 'serial', textContent: l.serial })));
     last = l.category;
   }
-  if (!current.licenses.length) tb.append(el('tr', {}, el('td', { colSpan: 4, className: 'muted', textContent: 'No licenses ticked.' })));
-  const removed = [...current.removed, ...current.unparsed.map(raw => ({ reason: 'Unrecognized line', raw }))];
-  const rb = $('removed').querySelector('tbody');
-  rb.replaceChildren(...removed.map(r => el('tr', {}, el('td', { textContent: r.reason }), el('td', { textContent: r.raw }))));
-  $('removedcount').textContent = removed.length;
-  $('removedbox').hidden = !removed.length;
-  $('meta').textContent = `(${current.licenses.length} license${current.licenses.length === 1 ? '' : 's'})`;
-  $('dl-csv').disabled = $('dl-xlsx').disabled = !current.licenses.length;
+  if (!n) tb.append(el('tr', {}, el('td', { colSpan: 4, className: 'muted', textContent: multi() ? 'No licenses in this environment yet.' : 'No licenses ticked.' })));
+  const removed = [...res.removed, ...res.unparsed.map(raw => ({ reason: 'Unrecognized line', raw }))];
+  const csv = el('button', { className: 'primary dl-csv', disabled: !n, textContent: 'Download Simple CSV for Licensing Portal' });
+  const xlsx = el('button', { className: 'dl-xlsx', disabled: !n, textContent: 'Download Detailed XLSX' });
+  csv.addEventListener('click', () => download(e, 'csv'));
+  xlsx.addEventListener('click', () => download(e, 'xlsx'));
+  const table = el('table', { className: 'licenses' }, el('thead', {}, el('tr', {}, ...['Category', 'License', 'Qty', 'Serial No'].map(h => el('th', { textContent: h })))), tb);
+  const block = el('section', { className: multi() ? `output ${colour(i)}` : 'output' },
+    el('h2', {}, title, ' ', el('span', { className: 'muted', textContent: `(${plural(n, 'license')})` })),
+    table);
+  if (removed.length) block.append(el('details', {}, el('summary', { textContent: `Removed / skipped (${removed.length})` }),
+    el('table', {}, el('tbody', {}, ...removed.map(r => el('tr', {}, el('td', { textContent: r.reason }), el('td', { textContent: r.raw })))))));
+  block.append(el('div', { className: 'actions' }, csv, xlsx));
+  block.dataset.env = e.id;
+  return block;
 }
 
-function download(kind) {
-  if (!current) return;
-  const f = ESLE_engine.buildFiles(current, fieldValues());
+function render() {
+  const opts = { removeSqt: $('remove_sqt').checked, removeZero: $('remove_zero').checked };
+  results = new Map(envs.map(e => [e.id, ESLE_engine.cleanAssets(ESLE_review.rowsIn(rows, envs, decided, e.id), opts)]));
+  $('outputs').replaceChildren(...envs.map((e, i) => outputBlock(e, i, results.get(e.id))));
+  if (!multi()) return show('unassigned');
+  for (const card of $('envs').querySelectorAll('.env')) card.querySelector('.count').textContent = `· ${plural(results.get(card.dataset.env).licenses.length, 'license')}`;
+  const left = ESLE_review.unassignedLikely(rows, envs, decided);
+  show('unassigned', left ? `${plural(left, 'likely license')} ${left === 1 ? "isn't" : "aren't"} in an environment yet.` : '');
+}
+
+function download(e, kind) {
+  const res = results.get(e.id);
+  if (!res) return;
+  const fields = multi() ? { ...fieldValues(), support_id: e.supportId, environment: labels.get(e.id) || '' } : fieldValues();
+  const f = ESLE_engine.buildFiles(res, fields);
   const blob = kind === 'csv'
     ? new Blob([f.csv], { type: 'text/csv' })
     : new Blob([f.xlsx], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -137,5 +212,3 @@ function download(kind) {
 
 $('read').addEventListener('click', read);
 for (const id of ['remove_sqt', 'remove_zero']) $(id).addEventListener('change', () => { if (rows.length) render(); });
-$('dl-csv').addEventListener('click', () => download('csv'));
-$('dl-xlsx').addEventListener('click', () => download('xlsx'));

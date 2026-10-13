@@ -21,6 +21,21 @@ export const EXAMPLE_ROWS = [
   ...Array.from({ length: 10 }, (_, i) => asset('LAC/E CONFIG 17', `K00TEST${String(i).padStart(2, '0')}W`, 'H/W LAC/E 17 LTSC2021')),
 ].map((r, i) => ({ key: `02i000000000${String(i + 1).padStart(3, '0')}AAA`, ...r }));
 
+// An order with three environments (e.g. Prod/Dev/Test): one "S/W Benefits Info" row
+// per environment carries its Support Plan ID. Names follow real Waters products; the
+// account and every serial are made up.
+export const MULTI_ENV_ROWS = [
+  asset('S/W Benefits Info', 'EM0TEST002', 'Empower S/W Platform Benefit Sheet'),
+  asset('S/W Benefits Info', 'EM0TEST001', 'Empower S/W Platform Benefit Sheet'),
+  asset('S/W Benefits Info', 'EM0TEST003', 'Empower S/W Platform Benefit Sheet'),
+  ...[1, 2, 3].map(i => asset('Undefined', `DD000000000090000${i}`, 'Empower Enterprise Base License 3 YR')),
+  ...[1, 2].map(i => asset('Undefined', `DD000000000090010${i}`, 'Empower Named User License (5) 3 YR')),
+  ...[1, 2, 3].map(i => asset('Undefined', `DD000000000090020${i}`, 'Emp Enterprise Dissolution Option 3 YR')),
+  ...[1, 2, 3].map(i => asset('Undefined', `DD000000000090030${i}`, 'S/W, Empower 3.10.0')),
+  asset('EMPOWER3 OPTION', 'DD0000000000900401', 'S/W, Sample Set Generator 2.0.0'),
+  asset('LAC/E CONFIG 17', 'K00TEST99W', 'H/W LAC/E 17 LTSC2021'),
+].map((r, i) => ({ key: `02i000000000${String(i + 1).padStart(3, '0')}MEV`, accountName: 'Northwind Labs', ...r }));
+
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const link = (text, withTitle = true) =>
   `<a class="slds-truncate" href="https://waters.lightning.force.com/lightning/r/02i000000000000AAA/view"${withTitle ? ` title="${esc(text)}"` : ''}><slot><span>${esc(text)}</span></slot></a>`;
