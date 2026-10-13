@@ -78,16 +78,6 @@ try {
   assert.equal(xlsx.suggestedFilename(), 'Contoso_Labs_Inc_02000001_Detailed_ESLC.xlsx');
   assert.equal(readFileSync(await xlsx.path()).subarray(0, 2).toString(), 'PK');
 
-  // Select all licenses / Clear all licenses ticks and unticks every likely license.
-  assert.equal(await panel.textContent('#all_select'), 'Clear all licenses');
-  await panel.click('#all_select');
-  assert.equal(await panel.isChecked('#likely input[type=checkbox]'), false);
-  assert.equal(await panel.isDisabled('#all_csv'), true);
-  await panel.click('#all_select');
-  assert.equal(await panel.isChecked('#likely input[type=checkbox]'), true);
-  assert.equal(await panel.textContent('#all_select'), 'Clear all licenses');
-  const [allCsv] = await Promise.all([panel.waitForEvent('download'), panel.click('#all_csv')]);
-  assert.equal(allCsv.suggestedFilename(), 'Contoso_Labs_Inc_02000001_Simple_ESLC.csv');
 
   // Next order in the same panel: details and file names must follow the new order.
   await panel.fill('#support_id', 'SP-A');
@@ -145,23 +135,23 @@ try {
   const [x3] = await Promise.all([panel.waitForEvent('download'), panel.click('.output[data-env="EM0TEST003"] .dl-xlsx')]);
   assert.equal(x3.suggestedFilename(), 'Northwind_Labs_EM0TEST003_02000003_Detailed_ESLC.xlsx');
 
-  // Download all: Select all is for one environment only; each format gets every environment's file.
-  assert.equal(await panel.isHidden('#all_select'), true);
-  assert.equal(await panel.textContent('#all_n'), '(3 files each)');
-  const all = [];
-  panel.on('download', d => all.push(d));
-  for (const [btn, count] of [['#all_csv', 3], ['#all_xlsx', 6]]) {
-    await panel.click(btn);
-    for (let i = 0; i < 50 && all.length < count; i++) await new Promise(r => setTimeout(r, 100));
-  }
-  const names = all.map(d => d.suggestedFilename()).sort();
-  assert.deepEqual(names, [...Object.keys(files), ...env.map(e => `Northwind_Labs_${e}_${e === 'EM0TEST001' ? 'Prod_' : ''}02000003_Detailed_ESLC.xlsx`)].sort());
-  for (const d of all) if (d.suggestedFilename().endsWith('.csv')) assert.equal(readFileSync(await d.path(), 'utf8'), files[d.suggestedFilename()]);
-  panel.removeAllListeners('download');
+  // Download all: every likely license on the page in one file, whatever is numbered.
+  await panel.click(`li[data-key="${plan[0][0].key}"] button.chip[data-env="EM0TEST001"]`); // take one out
+  const [everything] = await Promise.all([panel.waitForEvent('download'), panel.click('#all_csv')]);
+  assert.equal(everything.suggestedFilename(), 'Northwind_Labs_02000003_Simple_ESLC.csv');
+  assert.deepEqual(readFileSync(await everything.path(), 'utf8').trim().split('\r\n').slice(1).sort(),
+    Object.values(files).flatMap(f => f.trim().split('\r\n').slice(1)).sort());
   await panel.screenshot({ path: path.join(root, 'test-results', 'panel-envs.png'), fullPage: true });
 
   await panel.goto(`chrome-extension://${extId}/src/panel.html?tabId=${tabId}`);
   await sf.goto(pageUrl);
+  // Download all works straight away, without clicking Read or ticking anything.
+  const [first] = await Promise.all([panel.waitForEvent('download'), panel.click('#all_xlsx')]);
+  assert.equal(first.suggestedFilename(), 'Contoso_Labs_Inc_02000001_Detailed_ESLC.xlsx');
+  await panel.uncheck('#likely input[type=checkbox]');
+  const [csvAll] = await Promise.all([panel.waitForEvent('download'), panel.click('#all_csv')]);
+  assert.equal(readFileSync(await csvAll.path(), 'utf8'), 'Serial_Numbers\r\nDD0000000000123456\r\n');
+  await panel.check('#likely input[type=checkbox]');
   await panel.click('#read');
   await panel.waitForSelector('.output .licenses tbody td.serial');
   await panel.screenshot({ path: path.join(root, 'test-results', 'panel.png'), fullPage: true });

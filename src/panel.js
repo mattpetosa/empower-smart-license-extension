@@ -39,6 +39,7 @@ function errorText(out) {
   return OPEN_ASSETS;
 }
 
+// Returns true once the review shows this tab's order.
 async function read() {
   show('error'); show('warning');
   // Never leave an earlier order's results downloadable under a new Read's error.
@@ -76,6 +77,7 @@ async function read() {
     renderEnvs();
     renderChecklist();
     render();
+    return true;
   } finally {
     btn.disabled = false; btn.textContent = 'Read assets from this page';
   }
@@ -186,20 +188,23 @@ function outputBlock(e, i, res) {
 }
 
 function render() {
-  const opts = { removeSqt: $('remove_sqt').checked, removeZero: $('remove_zero').checked };
-  results = new Map(envs.map(e => [e.id, ESLE_engine.cleanAssets(ESLE_review.rowsIn(rows, envs, decided, e.id), opts)]));
+  results = new Map(envs.map(e => [e.id, ESLE_engine.cleanAssets(ESLE_review.rowsIn(rows, envs, decided, e.id), cleanOpts())]));
   $('outputs').replaceChildren(...envs.map((e, i) => outputBlock(e, i, results.get(e.id))));
-  renderAll();
   if (!multi()) return show('unassigned');
   for (const card of $('envs').querySelectorAll('.env')) card.querySelector('.count').textContent = `· ${plural(results.get(card.dataset.env).licenses.length, 'license')}`;
   const left = ESLE_review.unassignedLikely(rows, envs, decided);
   show('unassigned', left ? `${plural(left, 'likely license')} ${left === 1 ? "isn't" : "aren't"} in an environment yet.` : '');
 }
 
+const cleanOpts = () => ({ removeSqt: $('remove_sqt').checked, removeZero: $('remove_zero').checked });
+
 function download(e, kind) {
   const res = results.get(e.id);
   if (!res || !res.licenses.length) return;
-  const fields = multi() ? { ...fieldValues(), support_id: e.supportId, environment: labels.get(e.id) || '' } : fieldValues();
+  save(res, multi() ? { ...fieldValues(), support_id: e.supportId, environment: labels.get(e.id) || '' } : fieldValues(), kind);
+}
+
+function save(res, fields, kind) {
   const f = ESLE_engine.buildFiles(res, fields);
   const blob = kind === 'csv'
     ? new Blob([f.csv], { type: 'text/csv' })
@@ -211,34 +216,13 @@ function download(e, kind) {
   setTimeout(() => URL.revokeObjectURL(a.href), 10000);
 }
 
-// Download all: one file per environment that has licenses, in one format.
-// Select all ticks every likely license (one environment only: with several,
-// each license still needs a number).
-const filled = () => envs.filter(e => results.get(e.id)?.licenses.length);
-const likelyRows = () => rows.filter(r => ESLE_detect.looksLikeLicense(r));
-const allTicked = () => likelyRows().every(r => ESLE_review.envOf(r, envs, decided) === envs[0].id);
-
-function renderAll() {
-  const n = filled().length;
-  $('all_n').textContent = multi() ? `(${plural(n, 'file')} each)` : '';
-  for (const id of ['all_csv', 'all_xlsx']) $(id).disabled = !n;
-  $('all_select').hidden = multi();
-  $('all_select').disabled = !likelyRows().length;
-  $('all_select').textContent = likelyRows().length && allTicked() ? 'Clear all licenses' : 'Select all licenses';
-}
-
-function selectAll() {
-  const id = allTicked() ? null : envs[0].id;
-  for (const r of likelyRows()) decided.set(r.key, id);
-  renderChecklist();
-  render();
-}
-
-async function downloadAll(kind) {
-  for (const e of filled()) {
-    download(e, kind);
-    await new Promise(r => setTimeout(r, 250)); // back-to-back downloads can be dropped
-  }
+// Download all: read the page, then every likely license in one file, whatever is
+// ticked or numbered above. Several environments: one file for the whole order.
+async function downloadEverything(kind) {
+  if (!(await read())) return;
+  const res = ESLE_engine.cleanAssets(rows.filter(r => ESLE_detect.looksLikeLicense(r)), cleanOpts());
+  if (!res.licenses.length) return show('error', 'No licenses found on this page.');
+  save(res, multi() ? { ...fieldValues(), support_id: '' } : fieldValues(), kind);
 }
 
 // The logo goes green, like the toolbar icon, while the tab can be read.
@@ -252,9 +236,8 @@ async function showReady() {
 }
 
 $('read').addEventListener('click', read);
-$('all_select').addEventListener('click', selectAll);
-$('all_csv').addEventListener('click', () => downloadAll('csv'));
-$('all_xlsx').addEventListener('click', () => downloadAll('xlsx'));
+$('all_csv').addEventListener('click', () => downloadEverything('csv'));
+$('all_xlsx').addEventListener('click', () => downloadEverything('xlsx'));
 chrome.tabs.onActivated.addListener(showReady);
 // Salesforce changes the address without reloading; Chrome still reports it here.
 chrome.tabs.onUpdated.addListener((tabId, change) => { if (change.url || change.status) showReady(); });
