@@ -211,23 +211,31 @@ function download(e, kind) {
   setTimeout(() => URL.revokeObjectURL(a.href), 10000);
 }
 
-// Download all: every environment that has licenses, in each ticked format.
-const KINDS = [['csv', 'all_csv'], ['xlsx', 'all_xlsx']];
+// Download all: one file per environment that has licenses, in one format.
+// Select all ticks every likely license (one environment only: with several,
+// each license still needs a number).
 const filled = () => envs.filter(e => results.get(e.id)?.licenses.length);
-const ticked = () => KINDS.filter(([, id]) => $(id).checked).map(([kind]) => kind);
+const likelyRows = () => rows.filter(r => ESLE_detect.looksLikeLicense(r));
+const allTicked = () => likelyRows().every(r => ESLE_review.envOf(r, envs, decided) === envs[0].id);
 
 function renderAll() {
-  const n = filled().length, files = n * ticked().length;
-  for (const [, id] of KINDS) $(`${id}_n`).textContent = multi() ? `(${plural(n, 'file')})` : '';
-  const every = KINDS.every(([, id]) => $(id).checked);
-  $('all_select').textContent = every ? 'Clear' : 'Select all';
-  $('all_download').disabled = !files;
-  $('all_download').textContent = files ? `Download ${plural(files, 'file')}` : (n ? 'Tick a format to download' : 'No licenses to download');
+  const n = filled().length;
+  $('all_n').textContent = multi() ? `(${plural(n, 'file')} each)` : '';
+  for (const id of ['all_csv', 'all_xlsx']) $(id).disabled = !n;
+  $('all_select').hidden = multi();
+  $('all_select').disabled = !likelyRows().length;
+  $('all_select').textContent = likelyRows().length && allTicked() ? 'Clear all licenses' : 'Select all licenses';
 }
 
-async function downloadAll() {
-  const kinds = ticked();
-  for (const e of filled()) for (const kind of kinds) {
+function selectAll() {
+  const id = allTicked() ? null : envs[0].id;
+  for (const r of likelyRows()) decided.set(r.key, id);
+  renderChecklist();
+  render();
+}
+
+async function downloadAll(kind) {
+  for (const e of filled()) {
     download(e, kind);
     await new Promise(r => setTimeout(r, 250)); // back-to-back downloads can be dropped
   }
@@ -244,13 +252,9 @@ async function showReady() {
 }
 
 $('read').addEventListener('click', read);
-for (const [, id] of KINDS) $(id).addEventListener('change', renderAll);
-$('all_select').addEventListener('click', () => {
-  const every = KINDS.every(([, id]) => $(id).checked);
-  for (const [, id] of KINDS) $(id).checked = !every;
-  renderAll();
-});
-$('all_download').addEventListener('click', downloadAll);
+$('all_select').addEventListener('click', selectAll);
+$('all_csv').addEventListener('click', () => downloadAll('csv'));
+$('all_xlsx').addEventListener('click', () => downloadAll('xlsx'));
 chrome.tabs.onActivated.addListener(showReady);
 // Salesforce changes the address without reloading; Chrome still reports it here.
 chrome.tabs.onUpdated.addListener((tabId, change) => { if (change.url || change.status) showReady(); });

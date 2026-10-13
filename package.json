@@ -1,6 +1,6 @@
 {
   "name": "empower-smart-license-extension",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "Empower Smart License Extension: Salesforce order Assets -> License Cleaner CSV, in the browser",
   "scripts": {

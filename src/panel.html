@@ -37,13 +37,12 @@
     <div id="outputs"></div>
 
     <section id="all" class="all">
-      <h2>Download all</h2>
+      <h2>Download all <span class="muted" id="all_n"></span></h2>
       <div class="all-row">
-        <label><input type="checkbox" id="all_csv"> Simple CSV <span class="muted" id="all_csv_n"></span></label>
-        <label><input type="checkbox" id="all_xlsx"> Detailed XLSX <span class="muted" id="all_xlsx_n"></span></label>
-        <button type="button" id="all_select" class="small">Select all</button>
+        <button type="button" id="all_select" class="small">Select all licenses</button>
+        <button type="button" id="all_csv" class="small">All Simple CSV</button>
+        <button type="button" id="all_xlsx" class="small">All Detailed XLSX</button>
       </div>
-      <button type="button" id="all_download" class="small" disabled>Download</button>
     </section>
     <p class="muted small">Everything happens in this browser. Nothing is sent anywhere.</p>
   </section>

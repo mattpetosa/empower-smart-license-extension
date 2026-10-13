@@ -35,9 +35,11 @@ put it in that environment (click again to take it out). A yellow line counts th
 licenses not placed yet. Optionally name each environment (e.g. Prod); the name goes in
 the file name. Each environment has its own download buttons.
 
-**Download all** (bottom of the panel): tick Simple CSV, Detailed XLSX, or **Select all**
-for both, then **Download**. You get one file per environment in each ticked format.
-Chrome may ask once to allow this extension to download multiple files; click Allow.
+**Download all** (bottom of the panel): **Select all licenses** ticks every likely license
+(click again to clear them). **All Simple CSV** / **All Detailed XLSX** download that format
+for every environment that has licenses. Select all only shows on single-environment orders:
+with several, each license still needs its environment number. Chrome may ask once to allow
+this extension to download multiple files; click Allow.
 
 ## Update
 
