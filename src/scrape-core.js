@@ -139,7 +139,8 @@
     return {
       rows: list,
       expected,
-      complete: !expected || list.length >= expected.count,
+      // "50+ items" still showing means Salesforce never confirmed the end of the list.
+      complete: !expected || (!expected.plus && list.length >= expected.count),
       accountName: mostCommon(list.map(r => r.accountName)),
       orderNumber: readOrderNumber(table),
     };

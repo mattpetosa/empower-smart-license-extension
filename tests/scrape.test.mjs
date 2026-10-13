@@ -76,19 +76,38 @@ test('rows that leave the DOM while scrolling are still collected', async () => 
   assert.deepEqual(out.rows.map(r => r.key), EXAMPLE_ROWS.map(r => r.key));
 });
 
-test('"50+ items" keeps scrolling until no new rows, then reports complete', async () => {
-  const rows = manyRows(55);
+function lazyFifties(total, { exactWhenDone }) {
+  const rows = manyRows(total);
   const doc = load(assetsPageHtml({ rows, rendered: 25, itemCount: '50+ items' }));
   const scroller = visibleScroller(doc), tbody = scroller.querySelector('tbody');
   let next = 25;
   scroller.addEventListener('scroll', () => {
     rows.slice(next, next + 25).forEach((r, i) => tbody.insertAdjacentHTML('beforeend', rowHtml(r, VISIBLE_COLUMNS, next + i + 1)));
-    next = Math.min(next + 25, 55);
+    next = Math.min(next + 25, total);
+    // Lightning swaps "50+ items" for the exact count once the last page has loaded.
+    if (exactWhenDone && next === total) doc.querySelector('.forceRelatedListDesktop .countSortedByFilteredBy').textContent = `${total} items • Sorted by Product Name •`;
   });
-  const out = await S.readAssets({ doc, ...fast });
+  return doc;
+}
+
+test('"50+ items" keeps scrolling; exact count shown at the end means complete', async () => {
+  const out = await S.readAssets({ doc: lazyFifties(55, { exactWhenDone: true }), ...fast });
+  assert.equal(out.rows.length, 55);
+  assert.deepEqual(out.expected, { count: 55, plus: false });
+  assert.equal(out.complete, true);
+});
+
+test('"50+ items" still showing when loading stops is NOT complete', async () => {
+  const out = await S.readAssets({ doc: lazyFifties(55, { exactWhenDone: false }), ...fast });
   assert.equal(out.rows.length, 55);
   assert.deepEqual(out.expected, { count: 50, plus: true });
-  assert.equal(out.complete, true);
+  assert.equal(out.complete, false);
+});
+
+test('list stuck at exactly 50 under "50+ items" is NOT complete', async () => {
+  const out = await S.readAssets({ doc: lazyFifties(50, { exactWhenDone: false }), ...fast });
+  assert.equal(out.rows.length, 50);
+  assert.equal(out.complete, false);
 });
 
 test('list that never finishes loading is reported incomplete', async () => {

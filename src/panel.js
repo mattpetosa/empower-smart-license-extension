@@ -48,7 +48,11 @@ async function read() {
     ticked = new Set(rows.filter(r => (decided.has(r.key) ? decided.get(r.key) : ESLE_detect.looksLikeLicense(r))).map(r => r.key));
     if (out.accountName && !$('company').value.trim()) $('company').value = out.accountName;
     if (out.orderNumber && !$('order_number').value.trim()) $('order_number').value = out.orderNumber;
-    if (!out.complete) show('warning', `Read ${rows.length} of ${out.expected.count}${out.expected.plus ? '+' : ''} assets. Scroll the list to the bottom and click Read again.`);
+    if (!out.complete) {
+      show('warning', out.expected.plus
+        ? `Read ${rows.length} assets, but Salesforce still shows ${out.expected.count}+. If the list has more, scroll to the bottom and click Read again.`
+        : `Read ${rows.length} of ${out.expected.count} assets. Scroll the list to the bottom and click Read again.`);
+    }
     $('review').hidden = false;
     renderChecklist();
     render();
