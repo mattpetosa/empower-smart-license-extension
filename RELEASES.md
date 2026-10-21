@@ -2,6 +2,11 @@
 
 Newest first. Downloads are on the [Releases](https://github.com/mattpetosa/empower-smart-license-extension/releases) page.
 
+## v0.3.3 (2026-10-21)
+
+### Changed
+- **New charcoal icon with a white logo.** The License Extension is the only Smart Tool that installs into Chrome, so it now has its own dark tile. The toolbar icon is charcoal on most pages and still turns **green** on an order's Assets list.
+
 ## v0.3.2 (2026-10-16)
 
 First public release.

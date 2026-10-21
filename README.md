@@ -73,7 +73,7 @@ If the list shows **Allow extensions on waters.lightning.force.com**, leave it s
 
 ![Puzzle-piece menu → ⋮ → Pin to toolbar](assets/install/4-pin.png)
 
-The icon stays in the toolbar. It's **grey** on most pages and turns **green** on an order's
+The icon stays in the toolbar. It's **charcoal** on most pages and turns **green** on an order's
 Assets list, where it can read the page.
 
 ![The pinned icon, green on an Assets list](assets/install/5-pinned.png)

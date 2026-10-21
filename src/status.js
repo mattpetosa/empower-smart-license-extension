@@ -1,8 +1,8 @@
 /* Empower Smart License Extension: what the toolbar icon and the side panel's logo
-   show for a tab. Green on an order's Assets list (the page Read works on), grey
+   show for a tab. Green on an order's Assets list (the page Read works on), charcoal
    everywhere else.
    Chrome only shows this extension the address of Waters Salesforce tabs, so any
-   other tab arrives with no url and stays grey. */
+   other tab arrives with no url and stays charcoal. */
 (function (root) {
   'use strict';
   const { ASSETS_URL_RE } = root.ESLE_scrape || require('./scrape-core.js');
